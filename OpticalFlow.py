@@ -1,4 +1,3 @@
-# Code adapted from: https://github.com/niconielsen32/ComputerVision.git
 import numpy as np
 import cv2 as cv
 
@@ -18,12 +17,15 @@ detect_interval = 10
 trajs = []
 frame_idx = 0
 
-# Currently using webcam as input, will need to input video from dataset 
-cap = cv.VideoCapture(-1)
+# Change name of video input
+cap = cv.VideoCapture('1.avi')
 
 while(cap.isOpened()):
 
     ret, frame = cap.read()
+    if not ret:
+        print("Can't receive frame -- or Reached end of video.. Exiting ...")
+        break
     frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     img = frame.copy()
 
@@ -78,8 +80,10 @@ while(cap.isOpened()):
     cv.imshow('Optical Flow', img)
     cv.imshow('Mask', mask)
 
-    if cv.waitKey(10) & 0xFF == ord('q'):
+    if cv.waitKey(25) & 0xFF == ord('q'):
         break
 
 cap.release()
 cv.destroyAllWindows()
+
+# Code adapted from: https://github.com/niconielsen32/ComputerVision.git
