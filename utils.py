@@ -48,7 +48,7 @@ def parse_arguments():
     parser.add_argument(
         "--trajLen",
         type=int,
-        default=50,
+        default=100,
         help="Min len of traj"
     )
     parser.add_argument(
@@ -58,9 +58,48 @@ def parse_arguments():
         help="Update interval"
     )
     parser.add_argument(
-        "--Visualize",
+        "--visualize",
         action="store_true",
         help="Visualize optical flow"
+    )
+    parser.add_argument(
+        "--feat_ext",
+        type=str,
+        default="GFTT",
+        choices=["GFTT", "SIFT"],
+        help="Feature extractor"
+    )
+    parser.add_argument(
+        "--data_folder",
+        type=str,
+        default="data",
+        help="Data folder"
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="DeepStab",
+        choices=["DeepStab"],
+        help="Dataset folder"
+    )
+    parser.add_argument(
+        "--type",
+        type=str,
+        default="unstable",
+        choices=["unstable", "stable"],
+        help="Stable or unstable folder"
+    )
+    parser.add_argument(
+        "--video_name",
+        type=str,
+        default="1.avi",
+        help="Video name"
+    )
+    parser.add_argument(
+        "--degree",
+        type=int,
+        default=5,
+        help="Curve fitting degree"
     )
     args = parser.parse_args()
     return args
