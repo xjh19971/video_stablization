@@ -39,14 +39,14 @@ def feature_extract(args, prev_gray, mask, img=None, extractor=None):
                         qualityLevel = args.qualityLevel,
                         minDistance = args.minDistance,
                         blockSize = args.blockSize)
-    elif args.feat_ext == "SIFT":
+    elif args.feat_ext == "SIFT" or args.feat_ext == "ORB":
         feature_params = dict()
     # Detect the good features to track
     if args.feat_ext == "GFTT":
         features = cv2.goodFeaturesToTrack(prev_gray, mask = mask, **feature_params)
         p0 = features.reshape(-1, 2)
     elif args.feat_ext == "SIFT" or args.feat_ext == "ORB":
-        keypoints, descriptors = extractor.detectAndCompute(prev_gray, mask = mask)
+        keypoints, descriptors = extractor.detectAndCompute(prev_gray, mask = mask, **feature_params)
         p0 = (keypoints, descriptors)
     return p0
 
@@ -83,14 +83,12 @@ def calc_transformation(p0, p1, st1):
     curr = p1[idx, :]
     prev = p0[idx, :]
     [M, inliers] = cv2.estimateAffinePartial2D(np.array(prev), np.array(curr)) # Partial affine to only contains rotation, translation and scaling
-    # logging.debug(st1)
     return M
 
 def calc_transforms(args, M, transforms):
     # logging.debug(M)
     t = M[:, 2] # translation component
     s = np.array([np.sqrt(M[0, 0]**2 + M[0, 1]**2), np.sqrt(M[1, 0]**2 + M[1, 1]**2)]) # scaling component
-    # logging.debug(s)
     r = np.arctan2(M[1, 0] , M[1, 1]) # rotation component
     transforms.append(np.array([t[0], t[1], s[0], s[1], r]))
     return transforms
@@ -123,8 +121,8 @@ def calc_stab_M(args, transforms):
     t0_stab = transforms_np_stab[:, 0]
     t1_stab = transforms_np_stab[:, 1]
     s0_stab = transforms_np[:, 2]
-    s1_stab = transforms_np[:, 3] # Use original values for s
-    r_stab = transforms_np_stab[:, 4]
+    s1_stab = transforms_np[:, 3] # Use original values for s because it does not change a lot
+    r_stab = transforms_np_stab[:, 4] # Use original values for s because it does not change a lot
     for i in range(len(t0_stab)):
         stab_M_list.append(np.array([[s0_stab[i] * np.cos(r_stab[i]), -s0_stab[i] * np.sin(r_stab[i]), t0_stab[i]],
                             [s1_stab[i] * np.sin(r_stab[i]), s1_stab[i] * np.cos(r_stab[i]), t1_stab[i]]]))
