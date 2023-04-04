@@ -96,10 +96,16 @@ def parse_arguments():
         help="Video name"
     )
     parser.add_argument(
-        "--degree",
+        "--smooth_win_len",
         type=int,
-        default=5,
-        help="Curve fitting degree"
+        default=10,
+        help="Window len for smoothing"
+    )
+    parser.add_argument(
+        "--smooth_order",
+        type=int,
+        default=3,
+        help="Order for smoothing"
     )
     args = parser.parse_args()
     return args

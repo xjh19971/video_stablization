@@ -3,11 +3,11 @@ import cv2
 from utils import parse_arguments
 import logging
 import os
-from scipy.interpolate import splrep, BSpline
 from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 logging.basicConfig(level = logging.DEBUG)
 
+# Inspired by https://learnopencv.com/video-stabilization-using-point-feature-matching-in-opencv/
 # Adapted from https://github.com/niconielsen32/ComputerVision/blob/master/opticalFlow/sparseOpticalFlow.py
 def KLT(args, prev_gray, frame_gray, trajs, st, img=None):
     # Calculate optical flow for a sparse feature set (Lucas-Kanade Method)
@@ -84,8 +84,8 @@ def feature_extract(args, frame_gray, mask, trajs, st, img=None, extractor=None)
 
 def calc_transformation(trajs, st):
     st_np = np.array(st)
-    # valid_trajs_idxs = np.where(st_np == 1)[0]
-    valid_trajs_idxs = np.arange(len(trajs))
+    valid_trajs_idxs = np.where(st_np == 1)[0]
+    # valid_trajs_idxs = np.arange(len(trajs))
     curr = []
     prev = []
     for idx in valid_trajs_idxs:
@@ -95,52 +95,70 @@ def calc_transformation(trajs, st):
     [M, inliers] = cv2.estimateAffinePartial2D(np.array(curr), np.array(prev)) # Partial affine to only contains rotation, translation and scaling
     return M
 
-def calc_stab_M(args, M, states):
+def calc_transforms(args, M, transforms):
     # logging.debug(M)
     t = M[:, 2] # translation component
-    s = np.array([np.sqrt(M[0, 0]**2 + M[0, 1]**2), np.sqrt(M[1, 0]**2 + M[1, 1]**2)]) # scaling component
+    # s = np.array([np.sqrt(M[0, 0]**2 + M[0, 1]**2), np.sqrt(M[1, 0]**2 + M[1, 1]**2)]) # scaling component
     r = np.arctan2(M[1, 0] , M[1, 1]) # rotation component
-    states.append(np.array([t[0], t[1], s[0], s[1], r]))
-    # Beizer curve fitting for each components
-    states_np = np.array(states)
-    if len(states_np) <= 30:
-        stab_M = M
-    else:
-        t0_stab = savgol_filter(states_np[:, 0], window_length=30, polyorder=3)[-1]
-        t1_stab = savgol_filter(states_np[:, 1], window_length=30, polyorder=3)[-1]
-        s0_stab = savgol_filter(states_np[:, 2], window_length=30, polyorder=3)[-1]
-        s1_stab = savgol_filter(states_np[:, 3], window_length=30, polyorder=3)[-1]
-        r_stab = savgol_filter(states_np[:, 4], window_length=30, polyorder=3)[-1]
-        if len(states_np) == 50:
-            plt.subplot(121)
-            plt.plot(savgol_filter(states_np[:, 0], window_length=30, polyorder=3))
-            plt.plot(states_np[:, 0])
-            plt.savefig("temp.png")
-        stab_M = np.array([[s0_stab * np.cos(r_stab), -s0_stab * np.sin(r_stab), t0_stab],
-                        [s1_stab * np.sin(r_stab), s1_stab * np.cos(r_stab), t1_stab]])
-    return stab_M, states
+    # transforms.append(np.array([t[0], t[1], s[0], s[1], r]))
+    transforms.append(np.array([t[0], t[1], r]))
+    return transforms
 
-def stablize(args, frame_gray, prev_frame, trajs, st, states):
-    M = calc_transformation(trajs, st)
-    M_stab, states = calc_stab_M(args, M, states)
+def calc_stab_M(args, transforms):
+    transforms_np = np.array(transforms)
+    trajectory_np = np.cumsum(transforms_np, axis=0)
+    trajectory_np_stab = savgol_filter(trajectory_np, window_length=args.smooth_win_len, polyorder=args.smooth_order, axis=0)
+    plt.subplot(121)
+    plt.plot(trajectory_np_stab[:, 1])
+    plt.subplot(122)
+    plt.plot(trajectory_np[:, 1])
+    plt.savefig("temp.png")
+    diff = trajectory_np_stab - trajectory_np
+    transforms_np_stab = transforms_np + diff
+    stab_M_list = []
+    t0_stab = transforms_np[:, 0]
+    t1_stab = transforms_np[:, 1]
+    r_stab = transforms_np[:, 2]
+    # t0_stab = transforms_np_stab[:, 0]
+    # t1_stab = transforms_np_stab[:, 1]
+    # # s0_stab = transforms_np_stab[:, 2]
+    # # s1_stab = transforms_np_stab[:, 3]
+    # # r_stab = transforms_np_stab[:, 4]
+    # r_stab = transforms_np_stab[:, 2]
+    for i in range(len(t0_stab)):
+        # stab_M_list.append(np.array([[s0_stab[i] * np.cos(r_stab[i]), -s0_stab[i] * np.sin(r_stab[i]), t0_stab[i]],
+        #                     [s1_stab[i] * np.sin(r_stab[i]), s1_stab[i] * np.cos(r_stab[i]), t1_stab[i]]]))
+        stab_M_list.append(np.array([[np.cos(r_stab[i]), -np.sin(r_stab[i]), t0_stab[i]],
+                            [np.sin(r_stab[i]), np.cos(r_stab[i]), t1_stab[i]]]))
+    stab_M_list = np.stack(stab_M_list, axis=0)
+    return stab_M_list
+
+def stablize(args, prev_frame, M_stab):
     rows, cols, c = prev_frame.shape
     frame_new = cv2.warpAffine(prev_frame, M_stab, (cols, rows))
-    return frame_new, states
+    return frame_new
 
-    
-    
-def main():
-    args = parse_arguments()
+def resize_center_crop(args, frame):
+    rows, cols, c = frame.shape
+    resized = cv2.resize(frame, (cols*2, rows*2))
+    center_x = cols
+    center_y = rows
+    left = center_x - cols // 2
+    top = center_y - rows // 2
+    right = center_x + cols // 2
+    bottom = center_y + rows // 2
+    cropped = resized[top:bottom, left:right]
+    return cropped
+
+def extract_transforms(args):
     detect_interval = args.DetectInterval
     trajs = []
     st = []
-    frame_idx = 0
-    # Change name of video input
+    frame_idx = 0   
     cap = cv2.VideoCapture(os.path.join(args.data_folder, args.dataset, args.type, args.video_name))
     prev_gray = None
-    prev_frame = None
     extractor = None
-    states = []
+    transforms = []
     while(cap.isOpened()):
 
         ret, frame = cap.read()
@@ -164,26 +182,59 @@ def main():
                 extractor = cv2.SIFT_create()
             trajs, st, mask = feature_extract(args, frame_gray, mask, trajs, st, img)
 
-        # Calculate transformation
-        if frame_idx >= 2:
-            stablized_frame, states = stablize(args, frame_gray, prev_frame, trajs, st, states)
-        else:
-            stablized_frame = frame        
+        # Calculate transforms
+        if frame_idx > 0:
+            M = calc_transformation(trajs, st)
+            transforms = calc_transforms(args, M, transforms)
         
         frame_idx += 1
         prev_gray = frame_gray
-        prev_frame = frame
         
         # Show Results
         if img is not None:
             cv2.imshow('Optical Flow', img)
             cv2.imshow('Mask', mask)
-            cv2.imshow('Stablized', stablized_frame)
 
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
     cap.release()
+    return transforms
+
+def stablize_video(args, stab_M_list):
+    frame_idx = 0   
+    cap = cv2.VideoCapture(os.path.join(args.data_folder, args.dataset, args.type, args.video_name))
+    prev_frame = None
+    while(cap.isOpened()):
+
+        ret, frame = cap.read()
+        if not ret:
+            print("Can't receive frame -- or Reached end of video.. Exiting ...")
+            break
+
+        # Stablize video
+        if frame_idx > 0:
+            frame_stab = stablize(args, prev_frame, stab_M_list[frame_idx-1])
+        else:
+            frame_stab = frame
+        
+        frame_idx += 1
+        prev_frame = frame
+        
+        # Show Results
+        cv2.imshow('Unstablized', resize_center_crop(args,frame))
+        cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
+
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+
+def main():
+    args = parse_arguments()
+    transforms = extract_transforms(args)
+    stab_M_list = calc_stab_M(args, transforms)
+    stablize_video(args, stab_M_list)
     cv2.destroyAllWindows()
 
 
