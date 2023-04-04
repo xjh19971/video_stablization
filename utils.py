@@ -59,8 +59,8 @@ def parse_arguments():
     parser.add_argument(
         "--feat_ext",
         type=str,
-        default="GFTT",
-        choices=["GFTT", "SIFT"],
+        default="ORB",
+        choices=["GFTT", "SIFT", "ORB"],
         help="Feature extractor"
     )
     parser.add_argument(
@@ -92,7 +92,7 @@ def parse_arguments():
     parser.add_argument(
         "--smooth_win_len",
         type=int,
-        default=10,
+        default=50,
         help="Window len for smoothing"
     )
     parser.add_argument(
@@ -105,6 +105,12 @@ def parse_arguments():
         "--debug",
         action="store_true",
         help="Debug"
+    )
+    parser.add_argument(
+        "--scale_factor",
+        type=float,
+        default=1.2,
+        help="Scale factor to remove black boundary"
     )
     args = parser.parse_args()
     return args
