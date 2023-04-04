@@ -17,13 +17,11 @@ def KLT(args, prev_gray, frame_gray, p0, img=None):
     img0, img1 = prev_gray, frame_gray
     p1, st1, _ = cv2.calcOpticalFlowPyrLK(img0, img1, p0, None, **lk_params)
 
-    logging.debug(p1.shape)
-    logging.debug(st1.shape)
     # Get all the trajectories
     if img is not None:
-        for (x, y) in zip(p1.reshape(-1, 2)):
+        for (x, y), st in zip(p1.reshape(-1, 2), st1):
             # Newest detected point
-            if st1:
+            if st:
                 cv2.circle(img, (int(x), int(y)), 2, (0, 0, 255), -1)
 
     # Draw Lines
@@ -51,16 +49,10 @@ def feature_extract(args, prev_gray, mask, img=None, extractor=None):
         keypoints, descriptors = extractor.detectAndCompute(prev_gray)
     return p0
 
-def calc_transformation(trajs, st):
-    st_np = np.array(st)
-    valid_trajs_idxs = np.where(st_np == 1)[0]
-    # valid_trajs_idxs = np.arange(len(trajs))
-    curr = []
-    prev = []
-    for idx in valid_trajs_idxs:
-        if len(trajs[idx]) >= 2:
-            curr.append(trajs[idx][-1])
-            prev.append(trajs[idx][-2])
+def calc_transformation(p0, p1, st1):
+    logging.debug(st1.shape)
+    curr = p1[st1 == 1, :]
+    prev = p0[st1 == 1, :]
     [M, inliers] = cv2.estimateAffinePartial2D(np.array(curr), np.array(prev)) # Partial affine to only contains rotation, translation and scaling
     return M
 
@@ -144,11 +136,12 @@ def extract_transforms(args):
         p0 = feature_extract(args, frame_gray, mask, img, extractor=extractor)
 
         # Optical Flow
-        p1, st1, img = KLT(args, prev_gray, frame_gray, p0, img)
+        if frame_idx > 0:
+            p1, st1, img = KLT(args, prev_gray, frame_gray, p0, img)
 
         # Calculate transforms
         if frame_idx > 0:
-            M = calc_transformation(p1, st1)
+            M = calc_transformation(p0, p1, st1)
             transforms = calc_transforms(args, M, transforms)
         
         frame_idx += 1
