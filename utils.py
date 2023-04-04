@@ -52,12 +52,6 @@ def parse_arguments():
         help="Min len of traj"
     )
     parser.add_argument(
-        "--DetectInterval",
-        type=int,
-        default=10,
-        help="Update interval"
-    )
-    parser.add_argument(
         "--visualize",
         action="store_true",
         help="Visualize optical flow"
@@ -106,6 +100,11 @@ def parse_arguments():
         type=int,
         default=3,
         help="Order for smoothing"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Debug"
     )
     args = parser.parse_args()
     return args
