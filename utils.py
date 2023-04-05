@@ -112,6 +112,11 @@ def parse_arguments():
         default=1.2,
         help="Scale factor to remove black boundary"
     )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="Save videos"
+    )
     args = parser.parse_args()
     return args
     

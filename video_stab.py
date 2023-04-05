@@ -157,11 +157,11 @@ def extract_transforms(args):
     transforms = []
     count = 0
     while(cap.isOpened()):
-
         ret, frame = cap.read()
         if not ret:
             print("Can't receive frame -- or Reached end of video.. Exiting ...")
             break
+        rows, cols, c = frame.shape
         logging.debug(count)
         count += 1
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -177,7 +177,7 @@ def extract_transforms(args):
                 extractor = cv2.SIFT_create(nfeatures=args.maxCorners)
                 matcher = cv2.BFMatcher(crossCheck=True)
             elif args.feat_ext == "ORB":
-                extractor = cv2.ORB_create()
+                extractor = cv2.ORB_create(nfeatures=args.maxCorners)
                 matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
 
@@ -214,9 +214,9 @@ def extract_transforms(args):
             break
 
     cap.release()
-    return transforms
+    return transforms, (rows, cols)
 
-def stablize_video(args, stab_M_list):
+def stablize_video(args, stab_M_list, handler_list=None):
     frame_idx = 0   
     cap = cv2.VideoCapture(os.path.join(args.data_folder, args.dataset, args.type, args.video_name))
     prev_frame = None
@@ -239,7 +239,11 @@ def stablize_video(args, stab_M_list):
         # Show Results
         cv2.imshow('Unstablized', resize_center_crop(args,frame))
         cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
-
+        if handler_list is not None:
+            stable_handler = handler[0]
+            raw_handler = handler[1]
+            stable_handler.write(resize_center_crop(args,frame_stab))
+            raw_handler.write(resize_center_crop(args,frame))
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
@@ -247,10 +251,19 @@ def stablize_video(args, stab_M_list):
 
 def main():
     args = parse_arguments()
+    handler_list = []
     logging.basicConfig(level = logging.DEBUG if args.debug else logging.INFO)
-    transforms = extract_transforms(args)
+    transforms, size = extract_transforms(args)
+    if args.save:
+        stable_handler = cv2.VideoWriter(f'stablized.avi', 
+                cv2.VideoWriter_fourcc(*'MJPG'),
+                10, size)
+        raw_handler = cv2.VideoWriter(f'raw.avi', 
+                cv2.VideoWriter_fourcc(*'MJPG'),
+                10, size)
+        handler_list = [stable_handler, raw_handler]
     stab_M_list = calc_stab_M(args, transforms)
-    stablize_video(args, stab_M_list)
+    stablize_video(args, stab_M_list, handler=handler_list)
     cv2.destroyAllWindows()
 
 
