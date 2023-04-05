@@ -177,7 +177,7 @@ def extract_transforms(args):
                 extractor = cv2.SIFT_create(nfeatures=args.maxCorners)
                 matcher = cv2.BFMatcher(crossCheck=True)
             elif args.feat_ext == "ORB":
-                extractor = cv2.ORB_create()
+                extractor = cv2.ORB_create(nfeatures=args.maxCorners)
                 matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
 
