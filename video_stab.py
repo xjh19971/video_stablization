@@ -214,7 +214,7 @@ def extract_transforms(args):
             break
 
     cap.release()
-    return transforms, (rows, cols)
+    return transforms, (cols, rows)
 
 def stablize_video(args, stab_M_list, handler=None):
     frame_idx = 0   
@@ -239,7 +239,7 @@ def stablize_video(args, stab_M_list, handler=None):
         # Show Results
         cv2.imshow('Unstablized', resize_center_crop(args,frame))
         cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
-        if handler_list is not None:
+        if handler is not None:
             stable_handler = handler[0]
             raw_handler = handler[1]
             stable_handler.write(resize_center_crop(args,frame_stab))
@@ -247,6 +247,9 @@ def stablize_video(args, stab_M_list, handler=None):
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
+    if handler is not None:
+        handler[0].release()
+        handler[1].release()
     cap.release()
 
 def main():
@@ -255,12 +258,13 @@ def main():
     logging.basicConfig(level = logging.DEBUG if args.debug else logging.INFO)
     transforms, size = extract_transforms(args)
     if args.save:
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         stable_handler = cv2.VideoWriter(f'stablized.mp4', 
-                cv2.VideoWriter_fourcc(*'MJPG'),
-                10, size)
+                fourcc,
+                20, size)
         raw_handler = cv2.VideoWriter(f'raw.mp4', 
-                cv2.VideoWriter_fourcc(*'MJPG'),
-                10, size)
+                fourcc,
+                20, size)
         handler_list = [stable_handler, raw_handler]
     stab_M_list = calc_stab_M(args, transforms)
     stablize_video(args, stab_M_list, handler=handler_list)
