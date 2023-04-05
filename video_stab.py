@@ -216,7 +216,7 @@ def extract_transforms(args):
     cap.release()
     return transforms, (rows, cols)
 
-def stablize_video(args, stab_M_list, handler_list=None):
+def stablize_video(args, stab_M_list, handler=None):
     frame_idx = 0   
     cap = cv2.VideoCapture(os.path.join(args.data_folder, args.dataset, args.type, args.video_name))
     prev_frame = None
@@ -255,10 +255,10 @@ def main():
     logging.basicConfig(level = logging.DEBUG if args.debug else logging.INFO)
     transforms, size = extract_transforms(args)
     if args.save:
-        stable_handler = cv2.VideoWriter(f'stablized.avi', 
+        stable_handler = cv2.VideoWriter(f'stablized.mp4', 
                 cv2.VideoWriter_fourcc(*'MJPG'),
                 10, size)
-        raw_handler = cv2.VideoWriter(f'raw.avi', 
+        raw_handler = cv2.VideoWriter(f'raw.mp4', 
                 cv2.VideoWriter_fourcc(*'MJPG'),
                 10, size)
         handler_list = [stable_handler, raw_handler]
