@@ -9,6 +9,13 @@ def parse_arguments():
     )
     # Training parameters
     parser.add_argument(
+        "--estModel",
+        type=str,
+        default="affine",
+        choices=["affine", "homography"],
+        help="Estimation model for motion"
+    )
+    parser.add_argument(
         "--winSize",
         type=int,
         nargs=2,

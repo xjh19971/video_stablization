@@ -78,19 +78,25 @@ def matching(args, prev_gray, frame_gray, p0, mask, img=None, extractor=None, ma
         st1 = np.array(st1)
     return p0, p1, st1, img
 
-def calc_transformation(p0, p1, st1):
+def calc_transformation(p0, p1, st1, method):
     idx = np.where(st1 == 1)[0]
     curr = p1[idx, :]
     prev = p0[idx, :]
-    [M, inliers] = cv2.estimateAffinePartial2D(np.array(prev), np.array(curr)) # Partial affine to only contains rotation, translation and scaling
+    if method == "affine":
+        [M, inliers] = cv2.estimateAffinePartial2D(np.array(prev), np.array(curr), method=cv2.RANSAC, ransacReprojThreshold=5.0) # Partial affine to only contains rotation, translation and scaling
+    elif method == "homography":
+        [M, inliers] = cv2.findHomography(np.array(prev), np.array(curr), method=cv2.RANSAC, ransacReprojThreshold=5.0) # Partial affine to only contains rotation, translation and scaling
     return M
 
-def calc_transforms(args, M, transforms):
+def calc_transforms(args, M, transforms, method):
     # logging.debug(M)
-    t = M[:, 2] # translation component
-    s = np.array([np.sqrt(M[0, 0]**2 + M[0, 1]**2), np.sqrt(M[1, 0]**2 + M[1, 1]**2)]) # scaling component
-    r = np.arctan2(M[1, 0] , M[1, 1]) # rotation component
-    transforms.append(np.array([t[0], t[1], s[0], s[1], r]))
+    if method == "affine":
+        t = M[:, 2] # translation component
+        s = np.array([np.sqrt(M[0, 0]**2 + M[0, 1]**2), np.sqrt(M[1, 0]**2 + M[1, 1]**2)]) # scaling component
+        r = np.arctan2(M[1, 0] , M[1, 1]) # rotation component
+        transforms.append(np.array([t[0], t[1], s[0], s[1], r]))
+    elif method == "homography":
+        transforms.append(np.array([M[0, 0],M[0, 1],M[0, 2],M[1, 0],M[1, 1],M[0, 2],M[2, 0],M[2, 1],M[2, 2]]))
     return transforms
 
 def calc_stab_M(args, transforms):
@@ -98,34 +104,91 @@ def calc_stab_M(args, transforms):
     trajectory_np = np.cumsum(transforms_np, axis=0)
     trajectory_np_stab = savgol_filter(trajectory_np, window_length=args.smooth_win_len, polyorder=args.smooth_order, axis=0)
     if args.debug:
-        plt.subplot(311)
-        plt.plot(trajectory_np[:, 0], label="t0_raw")
-        plt.plot(trajectory_np_stab[:, 0], label="t0_smoothed")
-        plt.ylabel("Pixel")
-        plt.legend()
-        plt.subplot(312)
-        plt.plot(trajectory_np[:, 1], label="t1_raw")
-        plt.plot(trajectory_np_stab[:, 1], label="t1_smoothed")
-        plt.ylabel("Pixel")
-        plt.legend()
-        plt.subplot(313)
-        plt.plot(trajectory_np[:, 4], label="r_raw")
-        plt.plot(trajectory_np_stab[:, 4], label="r_smoothed")
-        plt.ylabel("Radian")
-        plt.xlabel("t")
-        plt.legend()
+        if args.estModel == "affine":
+            plt.subplot(311)
+            plt.plot(trajectory_np[:, 0], label="t0_raw")
+            plt.plot(trajectory_np_stab[:, 0], label="t0_smoothed")
+            plt.ylabel("Pixel")
+            plt.legend()
+            plt.subplot(312)
+            plt.plot(trajectory_np[:, 1], label="t1_raw")
+            plt.plot(trajectory_np_stab[:, 1], label="t1_smoothed")
+            plt.ylabel("Pixel")
+            plt.legend()
+            plt.subplot(313)
+            plt.plot(trajectory_np[:, 4], label="r_raw")
+            plt.plot(trajectory_np_stab[:, 4], label="r_smoothed")
+            plt.ylabel("Radian")
+            plt.xlabel("t")
+            plt.legend()
+        elif args.estModel == "homography":
+            plt.subplot(331)
+            plt.plot(trajectory_np[:, 0], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 0], label="H_smoothed")
+            plt.ylabel("H11")
+            plt.xlabel("t")
+            plt.subplot(332)
+            plt.plot(trajectory_np[:, 1], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 1], label="H_smoothed")
+            plt.ylabel("H12")
+            plt.xlabel("t")
+            plt.subplot(333)
+            plt.plot(trajectory_np[:, 2], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 2], label="H_smoothed")
+            plt.ylabel("H13")
+            plt.xlabel("t")
+            plt.legend()
+            plt.subplot(334)
+            plt.plot(trajectory_np[:, 3], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 3], label="H_smoothed")
+            plt.ylabel("H21")
+            plt.xlabel("t")
+            plt.subplot(335)
+            plt.plot(trajectory_np[:, 4], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 4], label="H_smoothed")
+            plt.ylabel("H22")
+            plt.xlabel("t")
+            plt.subplot(336)
+            plt.plot(trajectory_np[:, 5], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 5], label="H_smoothed")
+            plt.ylabel("H23")
+            plt.xlabel("t")        
+            plt.subplot(337)
+            plt.plot(trajectory_np[:, 6], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 6], label="H_smoothed")
+            plt.ylabel("H31")
+            plt.xlabel("t")
+            plt.subplot(338)
+            plt.plot(trajectory_np[:, 7], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 7], label="H_smoothed")
+            plt.ylabel("H32")
+            plt.xlabel("t")
+            plt.subplot(339)
+            plt.plot(trajectory_np[:, 8], label="H_raw")
+            plt.plot(trajectory_np_stab[:, 8], label="H_smoothed")
+            plt.ylabel("H33")
+            plt.xlabel("t")
         plt.savefig("smooth.png")
     diff = trajectory_np_stab - trajectory_np
     transforms_np_stab = transforms_np + diff
     stab_M_list = []
     t0_stab = transforms_np_stab[:, 0]
     t1_stab = transforms_np_stab[:, 1]
-    s0_stab = transforms_np[:, 2]
+    s0_stab = transforms_np[:, 2] # Use original values for s because it does not change a lot
     s1_stab = transforms_np[:, 3] # Use original values for s because it does not change a lot
-    r_stab = transforms_np_stab[:, 4] # Use original values for s because it does not change a lot
+    r_stab = transforms_np_stab[:, 4]
+    t0 = transforms_np[:, 0]
+    t1 = transforms_np[:, 1]
+    r = transforms_np[:, 4]
+    diff_t0 = t0_stab - t0
+    diff_t1 = t1_stab - t1
+    diff_r = r_stab - r
     for i in range(len(t0_stab)):
-        stab_M_list.append(np.array([[s0_stab[i] * np.cos(r_stab[i]), -s0_stab[i] * np.sin(r_stab[i]), t0_stab[i]],
-                            [s1_stab[i] * np.sin(r_stab[i]), s1_stab[i] * np.cos(r_stab[i]), t1_stab[i]]]))
+        stab_M = np.array([[s0_stab[i] * np.cos(r_stab[i]), -s0_stab[i] * np.sin(r_stab[i]), t0_stab[i]],
+                            [s1_stab[i] * np.sin(r_stab[i]), s1_stab[i] * np.cos(r_stab[i]), t1_stab[i]]])
+        # stab_M = np.array([[s0_stab[i] * np.cos(diff_r[i]), -s0_stab[i] * np.sin(diff_r[i]), diff_t0[i]],
+                            # [s1_stab[i] * np.sin(diff_r[i]), s1_stab[i] * np.cos(diff_r[i]), diff_t1[i]]])
+        stab_M_list.append(stab_M)
     stab_M_list = np.stack(stab_M_list, axis=0)
     return stab_M_list
 
@@ -189,7 +252,7 @@ def extract_transforms(args):
             p0, p1, st1, img = matching(args, prev_gray, frame_gray, p0, mask, img, extractor=extractor, matcher=matcher)
 
             # Calculate transforms
-            M = calc_transformation(p0, p1, st1)
+            M = calc_transformation(p0, p1, st1, args.estModel)
             # if args.debug:
             #     curr_frame = stablize(args, prev_frame, M)
             #     for (x, y), (x0, y0) in zip(p1, p0):
@@ -200,7 +263,7 @@ def extract_transforms(args):
             #     plt.imsave("est.png", curr_frame)
             #     plt.imsave("prev.png", prev_frame)
             #     plt.imsave("corr.png", frame)
-            transforms = calc_transforms(args, M, transforms)
+            transforms = calc_transforms(args, M, transforms, args.estModel)
         
         frame_idx += 1
         prev_gray = frame_gray
@@ -247,7 +310,7 @@ def stablize_video(args, stab_M_list, handler=None):
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
-    if handler is not None:
+    if len(handler) > 0:
         handler[0].release()
         handler[1].release()
     cap.release()
