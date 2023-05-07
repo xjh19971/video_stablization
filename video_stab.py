@@ -239,7 +239,7 @@ def stablize_video(args, stab_M_list, handler=None):
         # Show Results
         cv2.imshow('Unstablized', resize_center_crop(args,frame))
         cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
-        if handler is not None:
+        if len(handler) > 0:
             stable_handler = handler[0]
             raw_handler = handler[1]
             stable_handler.write(resize_center_crop(args,frame_stab))
