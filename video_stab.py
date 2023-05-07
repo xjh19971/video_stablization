@@ -104,6 +104,7 @@ def calc_stab_M(args, transforms):
     trajectory_np = np.cumsum(transforms_np, axis=0)
     trajectory_np_stab = savgol_filter(trajectory_np, window_length=args.smooth_win_len, polyorder=args.smooth_order, axis=0)
     if args.debug:
+        logging.debug("YES")
         if args.estModel == "affine":
             plt.subplot(311)
             plt.plot(trajectory_np[:, 0], label="t0_raw")
@@ -168,33 +169,43 @@ def calc_stab_M(args, transforms):
             plt.plot(trajectory_np_stab[:, 8], label="H_smoothed")
             plt.ylabel("H33")
             plt.xlabel("t")
+        else:
+            raise NotImplementedError()
         plt.savefig("smooth.png")
     diff = trajectory_np_stab - trajectory_np
     transforms_np_stab = transforms_np + diff
     stab_M_list = []
-    t0_stab = transforms_np_stab[:, 0]
-    t1_stab = transforms_np_stab[:, 1]
-    s0_stab = transforms_np[:, 2] # Use original values for s because it does not change a lot
-    s1_stab = transforms_np[:, 3] # Use original values for s because it does not change a lot
-    r_stab = transforms_np_stab[:, 4]
-    t0 = transforms_np[:, 0]
-    t1 = transforms_np[:, 1]
-    r = transforms_np[:, 4]
-    diff_t0 = t0_stab - t0
-    diff_t1 = t1_stab - t1
-    diff_r = r_stab - r
-    for i in range(len(t0_stab)):
-        stab_M = np.array([[s0_stab[i] * np.cos(r_stab[i]), -s0_stab[i] * np.sin(r_stab[i]), t0_stab[i]],
-                            [s1_stab[i] * np.sin(r_stab[i]), s1_stab[i] * np.cos(r_stab[i]), t1_stab[i]]])
-        # stab_M = np.array([[s0_stab[i] * np.cos(diff_r[i]), -s0_stab[i] * np.sin(diff_r[i]), diff_t0[i]],
-                            # [s1_stab[i] * np.sin(diff_r[i]), s1_stab[i] * np.cos(diff_r[i]), diff_t1[i]]])
-        stab_M_list.append(stab_M)
+    if args.estModel == "affine":
+        t0_stab = transforms_np_stab[:, 0]
+        t1_stab = transforms_np_stab[:, 1]
+        s0_stab = transforms_np[:, 2] # Use original values for s because it does not change a lot
+        s1_stab = transforms_np[:, 3] # Use original values for s because it does not change a lot
+        r_stab = transforms_np_stab[:, 4]
+        t0 = transforms_np[:, 0]
+        t1 = transforms_np[:, 1]
+        r = transforms_np[:, 4]
+        diff_t0 = t0_stab - t0
+        diff_t1 = t1_stab - t1
+        diff_r = r_stab - r
+        for i in range(len(t0_stab)):
+            stab_M = np.array([[s0_stab[i] * np.cos(r_stab[i]), -s0_stab[i] * np.sin(r_stab[i]), t0_stab[i]],
+                                [s1_stab[i] * np.sin(r_stab[i]), s1_stab[i] * np.cos(r_stab[i]), t1_stab[i]]])
+            # stab_M = np.array([[s0_stab[i] * np.cos(diff_r[i]), -s0_stab[i] * np.sin(diff_r[i]), diff_t0[i]],
+            #                     [s1_stab[i] * np.sin(diff_r[i]), s1_stab[i] * np.cos(diff_r[i]), diff_t1[i]]])
+            stab_M_list.append(stab_M)
+    elif args.estModel == "homography":
+        for i in range(len(transforms_np_stab)):
+            stab_M = transforms_np_stab[i].reshape(3,3)
+            stab_M_list.append(stab_M)
     stab_M_list = np.stack(stab_M_list, axis=0)
     return stab_M_list
 
 def stablize(args, prev_frame, M_stab):
     rows, cols, c = prev_frame.shape
-    frame_new = cv2.warpAffine(prev_frame, M_stab, (cols, rows))
+    if args.estModel == "affine":
+        frame_new = cv2.warpAffine(prev_frame, M_stab, (cols, rows))
+    elif args.estModel == "homography":
+        frame_new = cv2.warpPerspective(prev_frame, M_stab, (cols, rows))
     return frame_new
 
 def resize_center_crop(args, frame):
