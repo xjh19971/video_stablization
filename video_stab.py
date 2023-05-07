@@ -277,7 +277,7 @@ def extract_transforms(args):
             break
 
     cap.release()
-    return transforms, (cols, rows)
+    return transforms, (cols*2, rows)
 
 def stablize_video(args, stab_M_list, handler=None):
     frame_idx = 0   
@@ -304,15 +304,13 @@ def stablize_video(args, stab_M_list, handler=None):
         cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
         if len(handler) > 0:
             stable_handler = handler[0]
-            raw_handler = handler[1]
-            stable_handler.write(resize_center_crop(args,frame_stab))
-            raw_handler.write(resize_center_crop(args,frame))
+            concat_frame = cv2.hconcat([resize_center_crop(args,frame), resize_center_crop(args,frame_stab)])
+            stable_handler.write(concat_frame)
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
     if len(handler) > 0:
         handler[0].release()
-        handler[1].release()
     cap.release()
 
 def main():
@@ -322,13 +320,10 @@ def main():
     transforms, size = extract_transforms(args)
     if args.save:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        stable_handler = cv2.VideoWriter(f'stablized.mp4', 
+        stable_handler = cv2.VideoWriter(f'raw_stablized.mp4', 
                 fourcc,
                 20, size)
-        raw_handler = cv2.VideoWriter(f'raw.mp4', 
-                fourcc,
-                20, size)
-        handler_list = [stable_handler, raw_handler]
+        handler_list = [stable_handler]
     stab_M_list = calc_stab_M(args, transforms)
     stablize_video(args, stab_M_list, handler=handler_list)
     cv2.destroyAllWindows()
