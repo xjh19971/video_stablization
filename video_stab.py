@@ -96,7 +96,7 @@ def calc_transforms(args, M, transforms, method):
         r = np.arctan2(M[1, 0] , M[1, 1]) # rotation component
         transforms.append(np.array([t[0], t[1], s[0], s[1], r]))
     elif method == "homography":
-        transforms.append(np.array([M[0, 0],M[0, 1],M[0, 2],M[1, 0],M[1, 1],M[0, 2],M[2, 0],M[2, 1],M[2, 2]]))
+        transforms.append(np.array([M[0, 0],M[0, 1],M[0, 2],M[1, 0],M[1, 1],M[1, 2],M[2, 0],M[2, 1],M[2, 2]]))
     return transforms
 
 def calc_stab_M(args, transforms):
@@ -205,6 +205,7 @@ def stablize(args, prev_frame, M_stab):
     if args.estModel == "affine":
         frame_new = cv2.warpAffine(prev_frame, M_stab, (cols, rows))
     elif args.estModel == "homography":
+        logging.debug(M_stab)
         frame_new = cv2.warpPerspective(prev_frame, M_stab, (cols, rows))
     return frame_new
 
@@ -302,14 +303,11 @@ def stablize_video(args, stab_M_list, handler=None):
             break
 
         # Stablize video
-        if frame_idx > 0:
-            frame_stab = stablize(args, prev_frame, stab_M_list[frame_idx-1])
-        else:
-            frame_stab = frame
-        
+        if frame_idx >= len(stab_M_list):
+            break
+        frame_stab = stablize(args, frame, stab_M_list[frame_idx]) 
         frame_idx += 1
-        prev_frame = frame
-        
+
         # Show Results
         cv2.imshow('Unstablized', resize_center_crop(args,frame))
         cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
