@@ -83,9 +83,9 @@ def calc_transformation(p0, p1, st1, method):
     curr = p1[idx, :]
     prev = p0[idx, :]
     if method == "affine":
-        [M, inliers] = cv2.estimateAffinePartial2D(np.array(prev), np.array(curr), method=cv2.RANSAC, ransacReprojThreshold=5.0) # Partial affine to only contains rotation, translation and scaling
+        [M, inliers] = cv2.estimateAffinePartial2D(np.array(prev), np.array(curr), method=cv2.RANSAC, ransacReprojThreshold=3.0) # Partial affine to only contains rotation, translation and scaling
     elif method == "homography":
-        [M, inliers] = cv2.findHomography(np.array(prev), np.array(curr), method=cv2.RANSAC, ransacReprojThreshold=5.0) # Partial affine to only contains rotation, translation and scaling
+        [M, inliers] = cv2.findHomography(np.array(prev), np.array(curr), method=cv2.RANSAC, ransacReprojThreshold=3.0) # Partial affine to only contains rotation, translation and scaling
     return M
 
 def calc_transforms(args, M, transforms, method):
@@ -102,9 +102,9 @@ def calc_transforms(args, M, transforms, method):
 def calc_stab_M(args, transforms):
     transforms_np = np.array(transforms)
     trajectory_np = np.cumsum(transforms_np, axis=0)
-    trajectory_np_stab = savgol_filter(trajectory_np, window_length=args.smooth_win_len, polyorder=args.smooth_order, axis=0)
+    trajectory_np_stab = savgol_filter(trajectory_np, window_length=args.smooth_win_len if args.smooth_win_len < len(trajectory_np) else len(trajectory_np),
+                                        polyorder=args.smooth_order, axis=0)
     if args.debug:
-        logging.debug("YES")
         if args.estModel == "affine":
             plt.subplot(311)
             plt.plot(trajectory_np[:, 0], label="t0_raw")
@@ -205,7 +205,6 @@ def stablize(args, prev_frame, M_stab):
     if args.estModel == "affine":
         frame_new = cv2.warpAffine(prev_frame, M_stab, (cols, rows))
     elif args.estModel == "homography":
-        logging.debug(M_stab)
         frame_new = cv2.warpPerspective(prev_frame, M_stab, (cols, rows))
     return frame_new
 
@@ -232,6 +231,8 @@ def extract_transforms(args):
     transforms = []
     count = 0
     while(cap.isOpened()):
+        if args.max_frame > 0 and frame_idx >= args.max_frame:
+            break
         ret, frame = cap.read()
         if not ret:
             print("Can't receive frame -- or Reached end of video.. Exiting ...")
@@ -296,7 +297,8 @@ def stablize_video(args, stab_M_list, handler=None):
     cap = cv2.VideoCapture(os.path.join(args.data_folder, args.dataset, args.type, args.video_name))
     prev_frame = None
     while(cap.isOpened()):
-
+        if args.max_frame > 0 and frame_idx >= args.max_frame:
+            break
         ret, frame = cap.read()
         if not ret:
             print("Can't receive frame -- or Reached end of video.. Exiting ...")
