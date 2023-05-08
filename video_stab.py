@@ -60,10 +60,10 @@ def matching(args, prev_gray, frame_gray, p0, mask, img=None, extractor=None, ma
         st1 = []
         kp0, desc0 = p0
         kp1, desc1 = extractor.detectAndCompute(frame_gray, mask)
-        matches = matcher.knnMatch(desc1, desc0, k=1)
+        matches = matcher.knnMatch(desc1, desc0, k=2)
         matching_dict = dict()
         for match in matches:
-            if len(match) >=1 and not match[0].trainIdx in matching_dict:
+            if len(match) >=2 and not match[0].trainIdx in matching_dict and match[0].distance > 0.75 * match[1].distance:
                 matching_dict[match[0].trainIdx] = match[0].queryIdx
         for idx, kp0_single in enumerate(kp0):
             if idx in matching_dict:
