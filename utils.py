@@ -9,6 +9,13 @@ def parse_arguments():
     )
     # Training parameters
     parser.add_argument(
+        "--estModel",
+        type=str,
+        default="affine",
+        choices=["affine", "homography"],
+        help="Estimation model for motion"
+    )
+    parser.add_argument(
         "--winSize",
         type=int,
         nargs=2,
@@ -59,7 +66,7 @@ def parse_arguments():
     parser.add_argument(
         "--feat_ext",
         type=str,
-        default="ORB",
+        default="GFTT",
         choices=["GFTT", "SIFT", "ORB"],
         help="Feature extractor"
     )
@@ -116,6 +123,12 @@ def parse_arguments():
         "--save",
         action="store_true",
         help="Save videos"
+    )
+    parser.add_argument(
+        "--max_frame",
+        type=int,
+        default=0,
+        help="Maximum number of frames"
     )
     args = parser.parse_args()
     return args
