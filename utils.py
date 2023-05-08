@@ -80,7 +80,7 @@ def parse_arguments():
         "--dataset",
         type=str,
         default="DeepStab",
-        choices=["DeepStab", "UAV"],
+        choices=["DeepStab", "UAV", "UAV1"],
         help="Dataset folder"
     )
     parser.add_argument(
