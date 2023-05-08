@@ -340,7 +340,7 @@ def main():
     transforms, size = extract_transforms(args)
     if args.save:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        stable_handler = cv2.VideoWriter(f'raw_stablized.mp4', 
+        stable_handler = cv2.VideoWriter(f'{args.video_name}_{args.estModel}_raw_stablized.mp4', 
                 fourcc,
                 20, size)
         handler_list = [stable_handler]

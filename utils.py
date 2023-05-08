@@ -31,25 +31,25 @@ def parse_arguments():
     parser.add_argument(
         "--maxCorners",
         type=int,
-        default=100,
+        default=200,
         help="maxCorners for feature extractor"
     )
     parser.add_argument(
         "--qualityLevel",
         type=float,
-        default=0.3,
+        default=0.01,
         help="qualityLevel for feature extractor"
     )
     parser.add_argument(
         "--minDistance",
         type=int,
-        default=5,
+        default=10,
         help="minDistance for feature extractor"
     )
     parser.add_argument(
         "--blockSize",
         type=int,
-        default=7,
+        default=20,
         help="blockSize for feature extractor"
     )
     parser.add_argument(
@@ -134,7 +134,7 @@ def parse_arguments():
         "--window",
         type=int,
         nargs=4,
-        default=(105, 0, 600, 1050),
+        default=(105, 0, 590, 1050),
         help="Windows size for UAV video"
     )
     parser.add_argument(
