@@ -181,12 +181,6 @@ def calc_stab_M(args, transforms):
         s0_stab = transforms_np[:, 2] # Use original values for s because it does not change a lot
         s1_stab = transforms_np[:, 3] # Use original values for s because it does not change a lot
         r_stab = transforms_np_stab[:, 4]
-        t0 = transforms_np[:, 0]
-        t1 = transforms_np[:, 1]
-        r = transforms_np[:, 4]
-        diff_t0 = t0_stab - t0
-        diff_t1 = t1_stab - t1
-        diff_r = r_stab - r
         for i in range(len(t0_stab)):
             stab_M = np.array([[s0_stab[i] * np.cos(r_stab[i]), -s0_stab[i] * np.sin(r_stab[i]), t0_stab[i]],
                                 [s1_stab[i] * np.sin(r_stab[i]), s1_stab[i] * np.cos(r_stab[i]), t1_stab[i]]])
@@ -225,18 +219,26 @@ def extract_transforms(args):
     frame_idx = 0   
     cap = cv2.VideoCapture(os.path.join(args.data_folder, args.dataset, args.type, args.video_name))
     prev_gray = None
-    prev_frame = None
     extractor = None
     matcher = None
     transforms = []
     count = 0
     while(cap.isOpened()):
-        if args.max_frame > 0 and frame_idx >= args.max_frame:
+        if args.max_frame > 0 and frame_idx >= args.max_frame + args.video_offset:
             break
         ret, frame = cap.read()
         if not ret:
             print("Can't receive frame -- or Reached end of video.. Exiting ...")
             break
+        if frame_idx < args.video_offset:
+            frame_idx += 1
+            continue
+        if args.dataset == "UAV":
+            frame = frame[args.window[0]:+args.window[0] + args.window[2], args.window[1]:args.window[1] + args.window[3]]
+            # if args.debug:
+            #     cv2.imshow("test", frame)
+            #     if cv2.waitKey(25) & 0xFF == ord('q'):
+            #         break
         rows, cols, c = frame.shape
         logging.debug(count)
         count += 1
@@ -257,7 +259,7 @@ def extract_transforms(args):
                 matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
 
-        if frame_idx > 0:
+        if frame_idx > args.video_offset:
             # Feature extraction
             p0 = feature_extract(args, prev_gray, mask, img, extractor=extractor)
 
@@ -297,13 +299,17 @@ def stablize_video(args, stab_M_list, handler=None):
     cap = cv2.VideoCapture(os.path.join(args.data_folder, args.dataset, args.type, args.video_name))
     prev_frame = None
     while(cap.isOpened()):
-        if args.max_frame > 0 and frame_idx >= args.max_frame:
+        if args.max_frame > 0 and frame_idx >= args.max_frame + args.video_offset:
             break
         ret, frame = cap.read()
         if not ret:
             print("Can't receive frame -- or Reached end of video.. Exiting ...")
             break
-
+        if frame_idx < args.video_offset:
+            frame_idx += 1
+            continue
+        if args.dataset == "UAV":
+            frame = frame[args.window[0]:+args.window[0] + args.window[2], args.window[1]:args.window[1] + args.window[3]]
         # Stablize video
         if frame_idx >= len(stab_M_list):
             break
@@ -311,11 +317,14 @@ def stablize_video(args, stab_M_list, handler=None):
         frame_idx += 1
 
         # Show Results
-        cv2.imshow('Unstablized', resize_center_crop(args,frame))
-        cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
+        if args.debug:
+            cv2.imshow('Unstablized', resize_center_crop(args,frame))
+            cv2.imshow('Stablized', resize_center_crop(args,frame_stab))
         if len(handler) > 0:
             stable_handler = handler[0]
             concat_frame = cv2.hconcat([resize_center_crop(args,frame), resize_center_crop(args,frame_stab)])
+            cv2.putText(concat_frame,"Unstablized", (0,50), cv2.FONT_HERSHEY_COMPLEX, 2, 255)
+            cv2.putText(concat_frame,"Stablized", (concat_frame.shape[1]//2,50), cv2.FONT_HERSHEY_COMPLEX, 2, 255)
             stable_handler.write(concat_frame)
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break

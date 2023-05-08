@@ -80,7 +80,7 @@ def parse_arguments():
         "--dataset",
         type=str,
         default="DeepStab",
-        choices=["DeepStab"],
+        choices=["DeepStab", "UAV"],
         help="Dataset folder"
     )
     parser.add_argument(
@@ -129,6 +129,19 @@ def parse_arguments():
         type=int,
         default=0,
         help="Maximum number of frames"
+    )
+    parser.add_argument(
+        "--window",
+        type=int,
+        nargs=4,
+        default=(105, 0, 600, 1050),
+        help="Windows size for UAV video"
+    )
+    parser.add_argument(
+        "--video_offset",
+        type=int,
+        default=0,
+        help="Offset for UAV video"
     )
     args = parser.parse_args()
     return args
